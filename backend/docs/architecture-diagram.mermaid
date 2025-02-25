@@ -1,0 +1,44 @@
+flowchart TD
+    subgraph "Frontend [React]"
+        UI[User Interface]
+        AuthComponent[Authentication Component]
+        ScanManager[Scan Manager]
+        ReportViewer[Report Viewer]
+    end
+    
+    subgraph "Backend [FastAPI]"
+        API[API Layer]
+        AuthService[Authentication Service]
+        ScanService[Scan Service]
+        ReportService[Report Service]
+        NmapAdapter[Nmap Adapter]
+    end
+    
+    subgraph "Database [PostgreSQL/Supabase]"
+        UsersTable[Users Table]
+        EndpointsTable[Endpoints Table]
+        ScansTable[Scans Table]
+        ResultsTable[Results Table]
+    end
+    
+    subgraph "External Tools"
+        Nmap[Nmap Tool]
+    end
+    
+    UI --> AuthComponent
+    UI --> ScanManager
+    UI --> ReportViewer
+    
+    AuthComponent <--> AuthService
+    ScanManager <--> ScanService
+    ReportViewer <--> ReportService
+    
+    AuthService <--> UsersTable
+    ScanService <--> NmapAdapter
+    ScanService <--> EndpointsTable
+    ScanService <--> ScansTable
+    ReportService <--> ResultsTable
+    
+    NmapAdapter <--> Nmap
+    
+    UsersTable <-.-> Supabase[Supabase Auth]

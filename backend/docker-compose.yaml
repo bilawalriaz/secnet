@@ -1,0 +1,20 @@
+services:
+  backend:
+    build: ./
+    ports:
+      - "8000:8000"
+    env_file:
+      - ../.env
+    environment:
+      - DATABASE_URL=${DATABASE_URL}
+      - SUPABASE_URL=${SUPABASE_URL}
+      - SUPABASE_KEY=${SUPABASE_KEY}
+      - SUPABASE_JWT_SECRET=${SUPABASE_JWT_SECRET}
+    volumes:
+      - .:/app
+    cap_add:
+      - NET_ADMIN
+      - NET_RAW
+    command: >
+      bash -c "cd /app && ls -lha && python -m alembic.config -c ./app/alembic/ini.txt upgrade head && 
+              uvicorn app.main:app --host 0.0.0.0 --port 8000 --reload"

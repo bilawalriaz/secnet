@@ -1,0 +1,95 @@
+erDiagram
+    USERS {
+        uuid id PK
+        string email
+        string full_name
+        string hashed_password
+        string role
+        timestamp created_at
+        timestamp last_login
+        boolean is_active
+    }
+    
+    ENDPOINTS {
+        uuid id PK
+        uuid user_id FK
+        string name
+        string address
+        string type
+        string description
+        uuid group_id FK
+        timestamp created_at
+        timestamp updated_at
+        boolean is_active
+    }
+    
+    ENDPOINT_GROUPS {
+        uuid id PK
+        uuid user_id FK
+        string name
+        string description
+        timestamp created_at
+        timestamp updated_at
+    }
+    
+    SCANS {
+        uuid id PK
+        uuid user_id FK
+        string name
+        string type
+        jsonb parameters
+        timestamp scheduled_at
+        timestamp started_at
+        timestamp completed_at
+        string status
+    }
+    
+    SCAN_TARGETS {
+        uuid id PK
+        uuid scan_id FK
+        uuid endpoint_id FK
+    }
+    
+    SCAN_RESULTS {
+        uuid id PK
+        uuid scan_id FK
+        uuid endpoint_id FK
+        jsonb raw_results
+        integer open_ports
+        integer vulnerabilities
+        string os_detection
+        timestamp created_at
+    }
+    
+    SCHEDULED_SCANS {
+        uuid id PK
+        uuid user_id FK
+        string name
+        jsonb scan_config
+        string schedule_type
+        string cron_expression
+        timestamp next_run
+        timestamp last_run
+        boolean is_active
+    }
+    
+    API_KEYS {
+        uuid id PK
+        uuid user_id FK
+        string name
+        string key_hash
+        timestamp created_at
+        timestamp expires_at
+        boolean is_active
+    }
+    
+    USERS ||--o{ ENDPOINTS : creates
+    USERS ||--o{ ENDPOINT_GROUPS : creates
+    USERS ||--o{ SCANS : initiates
+    USERS ||--o{ SCHEDULED_SCANS : schedules
+    USERS ||--o{ API_KEYS : owns
+    ENDPOINT_GROUPS ||--o{ ENDPOINTS : contains
+    SCANS ||--o{ SCAN_TARGETS : includes
+    SCANS ||--o{ SCAN_RESULTS : produces
+    ENDPOINTS ||--o{ SCAN_TARGETS : referenced_in
+    ENDPOINTS ||--o{ SCAN_RESULTS : has_results

@@ -1,0 +1,28 @@
+# FastAPI and ASGI server
+fastapi
+uvicorn
+python-multipart
+
+# Database
+sqlalchemy
+alembic
+psycopg2-binary
+
+# Security
+python-jose[cryptography]
+passlib[bcrypt]
+pyjwt
+
+# HTTP client
+httpx
+
+# Validation and parsing
+pydantic
+pydantic-settings
+pydantic[email]
+
+# Network scanning
+python-nmap
+
+# PDF Generation
+fpdf2

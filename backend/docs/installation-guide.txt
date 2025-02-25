@@ -1,0 +1,327 @@
+# Installation and Testing Guide
+
+This guide provides detailed instructions for installing, configuring, and testing SecurityScan Pro.
+
+## Installation
+
+### Prerequisites
+
+Before you begin, make sure you have the following installed:
+
+- **Docker** (version 20.10.0 or higher)
+- **Docker Compose** (version 1.29.0 or higher)
+- **Git** (for cloning the repository)
+- **Supabase Account** (for authentication)
+
+### Step 1: Clone the Repository
+
+```bash
+git clone https://github.com/yourusername/security-scan-pro.git
+cd security-scan-pro
+```
+
+### Step 2: Set Up Supabase
+
+1. Create a new project on [Supabase](https://supabase.com/)
+2. Once your project is created, navigate to Settings > API
+3. Copy the following values:
+   - **URL**: Your Supabase project URL
+   - **anon public key**: Your Supabase anon key
+   - **JWT Secret**: Found under Settings > API > JWT Settings
+
+### Step 3: Configure Environment Variables
+
+1. Create a `.env` file in the project root:
+   ```bash
+   cp .env.example .env
+   ```
+
+2. Edit the `.env` file with your Supabase credentials:
+   ```
+   SUPABASE_URL=https://your-project.supabase.co
+   SUPABASE_KEY=your-anon-key
+   SUPABASE_JWT_SECRET=your-jwt-secret
+   ```
+
+### Step 4: Build and Start the Application
+
+Run the setup script to build and start the application:
+
+```bash
+chmod +x setup.sh
+./setup.sh
+```
+
+Alternatively, you can manually start the application:
+
+```bash
+docker-compose build
+docker-compose up -d
+```
+
+### Step 5: Verify Installation
+
+1. Check if the containers are running:
+   ```bash
+   docker-compose ps
+   ```
+
+2. Access the API documentation:
+   ```
+   http://localhost:8000/docs
+   ```
+
+## Manual Installation (without Docker)
+
+If you prefer to install the application without Docker, follow these steps:
+
+### Step 1: Set Up PostgreSQL
+
+1. Install PostgreSQL:
+   ```bash
+   # On Ubuntu/Debian
+   sudo apt update
+   sudo apt install postgresql postgresql-contrib
+   
+   # On macOS with Homebrew
+   brew install postgresql
+   ```
+
+2. Create a database:
+   ```bash
+   sudo -u postgres psql
+   postgres=# CREATE DATABASE securityscan;
+   postgres=# CREATE USER securityuser WITH PASSWORD 'password';
+   postgres=# GRANT ALL PRIVILEGES ON DATABASE securityscan TO securityuser;
+   postgres=# \q
+   ```
+
+### Step 2: Install nmap
+
+```bash
+# On Ubuntu/Debian
+sudo apt install nmap
+
+# On macOS with Homebrew
+brew install nmap
+```
+
+### Step 3: Install Python Dependencies
+
+```bash
+cd backend
+python -m venv venv
+source venv/bin/activate  # On Windows: venv\Scripts\activate
+pip install -r requirements.txt
+```
+
+### Step 4: Configure Environment Variables
+
+```bash
+export DATABASE_URL=postgresql://securityuser:password@localhost:5432/securityscan
+export SUPABASE_URL=https://your-project.supabase.co
+export SUPABASE_KEY=your-anon-key
+export SUPABASE_JWT_SECRET=your-jwt-secret
+```
+
+### Step 5: Run Database Migrations
+
+```bash
+alembic upgrade head
+```
+
+### Step 6: Start the Application
+
+```bash
+uvicorn app.main:app --reload
+```
+
+## Testing
+
+### Testing the API
+
+#### 1. Create a User Account
+
+```bash
+curl -X POST http://localhost:8000/api/v1/auth/signup \
+  -H "Content-Type: application/json" \
+  -d '{
+    "email": "test@example.com",
+    "password": "securepassword",
+    "full_name": "Test User"
+  }'
+```
+
+Response:
+```json
+{
+  "access_token": "your_jwt_token",
+  "token_type": "bearer"
+}
+```
+
+#### 2. Login
+
+```bash
+curl -X POST http://localhost:8000/api/v1/auth/login \
+  -H "Content-Type: application/json" \
+  -d '{
+    "email": "test@example.com",
+    "password": "securepassword"
+  }'
+```
+
+Response:
+```json
+{
+  "access_token": "your_jwt_token",
+  "token_type": "bearer"
+}
+```
+
+#### 3. Create an Endpoint Group
+
+```bash
+curl -X POST http://localhost:8000/api/v1/endpoint-groups \
+  -H "Content-Type: application/json" \
+  -H "Authorization: Bearer your_jwt_token" \
+  -d '{
+    "name": "Test Servers",
+    "description": "Servers for testing"
+  }'
+```
+
+Response:
+```json
+{
+  "id": "group_uuid",
+  "user_id": "user_uuid",
+  "name": "Test Servers",
+  "description": "Servers for testing",
+  "created_at": "2023-02-24T12:34:56.789012",
+  "updated_at": "2023-02-24T12:34:56.789012"
+}
+```
+
+#### 4. Create an Endpoint
+
+```bash
+curl -X POST http://localhost:8000/api/v1/endpoints \
+  -H "Content-Type: application/json" \
+  -H "Authorization: Bearer your_jwt_token" \
+  -d '{
+    "name": "Local Test",
+    "address": "127.0.0.1",
+    "type": "ip",
+    "description": "Local test endpoint",
+    "group_id": "group_uuid_from_previous_response"
+  }'
+```
+
+Response:
+```json
+{
+  "id": "endpoint_uuid",
+  "user_id": "user_uuid",
+  "name": "Local Test",
+  "address": "127.0.0.1",
+  "type": "ip",
+  "description": "Local test endpoint",
+  "group_id": "group_uuid",
+  "created_at": "2023-02-24T12:34:56.789012",
+  "updated_at": "2023-02-24T12:34:56.789012",
+  "is_active": true
+}
+```
+
+#### 5. Run a Port Scan
+
+```bash
+curl -X POST http://localhost:8000/api/v1/scans \
+  -H "Content-Type: application/json" \
+  -H "Authorization: Bearer your_jwt_token" \
+  -d '{
+    "name": "Test Port Scan",
+    "type": "port-scan",
+    "parameters": {
+      "ports": "22-80",
+      "speed": "fast"
+    },
+    "target_endpoints": ["endpoint_uuid_from_previous_response"]
+  }'
+```
+
+Response:
+```json
+{
+  "id": "scan_uuid",
+  "user_id": "user_uuid",
+  "name": "Test Port Scan",
+  "type": "port-scan",
+  "parameters": {
+    "ports": "22-80",
+    "speed": "fast"
+  },
+  "scheduled_at": null,
+  "started_at": null,
+  "completed_at": null,
+  "status": "pending"
+}
+```
+
+#### 6. Check Scan Status
+
+```bash
+curl -X GET http://localhost:8000/api/v1/scans/scan_uuid_from_previous_response \
+  -H "Authorization: Bearer your_jwt_token"
+```
+
+#### 7. Generate a Report
+
+```bash
+curl -X GET "http://localhost:8000/api/v1/reports/scan_uuid?format=json" \
+  -H "Authorization: Bearer your_jwt_token"
+```
+
+### Common Issues and Fixes
+
+#### Docker Container Not Starting
+
+Check the logs:
+```bash
+docker-compose logs backend
+```
+
+Common issues:
+- Database connection errors: Check your DATABASE_URL
+- Port conflicts: Change the exposed port in docker-compose.yml
+- Permission issues: Ensure your user has permission to run Docker
+
+#### API Authentication Issues
+
+- Double-check your Supabase credentials
+- Ensure JWT_SECRET matches your Supabase project
+- Check that your token hasn't expired
+
+#### Scan Not Working
+
+- Ensure nmap is installed and accessible
+- Check if your user has permission to use nmap (Docker container runs as root)
+- Verify the endpoint IP is reachable from the container
+
+## Updating the Application
+
+To update the application to the latest version:
+
+```bash
+git pull
+docker-compose down
+docker-compose build
+docker-compose up -d
+```
+
+For database migrations:
+
+```bash
+docker-compose exec backend alembic upgrade head
+```
