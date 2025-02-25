@@ -291,19 +291,16 @@ def delete_scan(
             detail="Cannot delete a running scan",
         )
     
-    try:
-        # Delete scan targets and results
-        db.query(ScanTarget).filter(ScanTarget.scan_id == scan_id).delete()
-        db.query(ScanResult).filter(ScanResult.scan_id == scan_id).delete()
-        db.delete(scan)
-        db.commit()
-        db.refresh(scan)
-    except SQLAlchemyError as e:
-        db.rollback()
-        raise HTTPException(
-            status_code=status.HTTP_500_INTERNAL_SERVER_ERROR,
-            detail=f"Database error: {e}",
-        )
+    # Delete associated scan results first
+    db.query(ScanResult).filter(ScanResult.scan_id == scan_id).delete()
+    
+    # Delete associated scan targets
+    db.query(ScanTarget).filter(ScanTarget.scan_id == scan_id).delete()
+    
+    # Delete the scan
+    db.query(Scan).filter(Scan.id == scan_id).delete()
+    
+    db.commit()
 
 
 @router.post("/{scan_id}/stop", response_model=ScanSchema)
@@ -546,4 +543,107 @@ def delete_scheduled_scan(
     
     db.delete(scheduled_scan)
     db.commit()
-    db.refresh(scheduled_scan)
+
+
+@router.get("/compare/{scan_id_1}/{scan_id_2}")
+def compare_scans(
+    *,
+    db: Session = Depends(get_db),
+    current_user: User = Depends(get_current_user),
+    scan_id_1: UUID,
+    scan_id_2: UUID,
+) -> Any:
+    """
+    Compare two scans and return their differences
+    """
+    # Get both scans
+    scan1 = db.query(Scan).filter(
+        Scan.id == scan_id_1,
+        Scan.user_id == current_user.id
+    ).first()
+    
+    scan2 = db.query(Scan).filter(
+        Scan.id == scan_id_2,
+        Scan.user_id == current_user.id
+    ).first()
+    
+    if not scan1 or not scan2:
+        raise HTTPException(
+            status_code=status.HTTP_404_NOT_FOUND,
+            detail="One or both scans not found",
+        )
+    
+    # Get scan results
+    results1 = db.query(ScanResult).filter(ScanResult.scan_id == scan_id_1).all()
+    results2 = db.query(ScanResult).filter(ScanResult.scan_id == scan_id_2).all()
+    
+    # Compare scan results
+    comparison = {
+        "scan1": {
+            "id": str(scan1.id),
+            "name": scan1.name,
+            "type": scan1.type,
+            "started_at": scan1.started_at,
+            "completed_at": scan1.completed_at,
+            "results": []
+        },
+        "scan2": {
+            "id": str(scan2.id),
+            "name": scan2.name,
+            "type": scan2.type,
+            "started_at": scan2.started_at,
+            "completed_at": scan2.completed_at,
+            "results": []
+        },
+        "differences": {
+            "new_ports": [],
+            "closed_ports": [],
+            "changed_services": [],
+            "os_changes": []
+        }
+    }
+    
+    # Map results by endpoint for easy comparison
+    results1_by_endpoint = {r.endpoint_id: r for r in results1}
+    results2_by_endpoint = {r.endpoint_id: r for r in results2}
+    
+    # Compare results for each endpoint
+    all_endpoints = set(results1_by_endpoint.keys()) | set(results2_by_endpoint.keys())
+    
+    for endpoint_id in all_endpoints:
+        result1 = results1_by_endpoint.get(endpoint_id)
+        result2 = results2_by_endpoint.get(endpoint_id)
+        
+        if result1 and result2:
+            # Compare open ports
+            ports1 = set(result1.raw_results.get("summary", {}).get("open_ports", []))
+            ports2 = set(result2.raw_results.get("summary", {}).get("open_ports", []))
+            
+            comparison["differences"]["new_ports"].extend(list(ports2 - ports1))
+            comparison["differences"]["closed_ports"].extend(list(ports1 - ports2))
+            
+            # Compare OS detection
+            os1 = result1.os_detection
+            os2 = result2.os_detection
+            if os1 != os2:
+                comparison["differences"]["os_changes"].append({
+                    "endpoint_id": str(endpoint_id),
+                    "old": os1,
+                    "new": os2
+                })
+            
+            # Compare services
+            services1 = set(str(s) for s in result1.raw_results.get("summary", {}).get("services", []))
+            services2 = set(str(s) for s in result2.raw_results.get("summary", {}).get("services", []))
+            
+            changed_services = []
+            for service in (services1 | services2):
+                if service in services1 and service not in services2:
+                    changed_services.append({"service": service, "status": "removed"})
+                elif service not in services1 and service in services2:
+                    changed_services.append({"service": service, "status": "added"})
+            
+            if changed_services:
+                comparison["differences"]["changed_services"].extend(changed_services)
+    
+    return comparison
