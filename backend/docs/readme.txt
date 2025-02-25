@@ -56,17 +56,13 @@ SecurityScan Pro follows a modern, modular architecture:
    cd security-scan-pro
    ```
 
-2. Create a `.env` file in the root directory with the following variables:
-   ```
-   SUPABASE_URL=your_supabase_project_url
-   SUPABASE_KEY=your_supabase_anon_key
-   SUPABASE_JWT_SECRET=your_supabase_jwt_secret
+2. Run the setup script to create the environment file and start the containers:
+   ```bash
+   chmod +x setup-script.sh
+   ./setup-script.sh
    ```
 
-3. Start the application using Docker Compose:
-   ```bash
-   docker-compose up -d
-   ```
+3. After running the setup script for the first time, edit the `.env` file with your Supabase credentials and run the script again.
 
 4. The API will be available at http://localhost:8000
    - API documentation is available at http://localhost:8000/docs
@@ -84,20 +80,28 @@ SecurityScan Pro follows a modern, modular architecture:
    pip install -r requirements.txt
    ```
 
-4. Set environment variables:
+4. Set environment variables (you can copy them from env-template.txt):
    ```bash
    export DATABASE_URL=postgresql://username:password@localhost:5432/securityscan
    export SUPABASE_URL=your_supabase_project_url
    export SUPABASE_KEY=your_supabase_anon_key
    export SUPABASE_JWT_SECRET=your_supabase_jwt_secret
+   export ACCESS_TOKEN_EXPIRE_MINUTES=10080  # 7 days
+   export CORS_ORIGINS=http://localhost:3000,http://localhost
+   export NMAP_PATH=/usr/bin/nmap
    ```
 
-5. Run database migrations:
+5. Create Alembic versions directory if it doesn't exist:
    ```bash
-   alembic upgrade head
+   mkdir -p app/alembic/versions
    ```
 
-6. Start the FastAPI server:
+6. Run database migrations:
+   ```bash
+   python -m alembic.config -c ./app/alembic/ini.txt upgrade head
+   ```
+
+7. Start the FastAPI server:
    ```bash
    uvicorn app.main:app --reload
    ```
@@ -276,20 +280,23 @@ curl -X GET "http://localhost:8000/api/v1/reports/scan_uuid?format=pdf" \
 security-scan-pro/
 ├── backend/
 │   ├── app/
-│   │   ├── auth/        # Authentication components
-│   │   ├── core/        # Core utilities and security
-│   │   ├── database/    # Database models and session
-│   │   ├── endpoints/   # Endpoint management
-│   │   ├── groups/      # Endpoint groups
-│   │   ├── reports/     # Report generation
-│   │   ├── scans/       # Scanning functionality
-│   │   ├── config.py    # Configuration
-│   │   └── main.py      # Application entry point
-│   ├── migrations/      # Database migrations
-│   ├── alembic.ini      # Alembic configuration
-│   ├── Dockerfile       # Docker configuration
-│   └── requirements.txt # Python dependencies
-└── docker-compose.yml   # Docker Compose configuration
+│   │   ├── alembic/      # Database migration configuration
+│   │   ├── auth/         # Authentication components
+│   │   ├── core/         # Core utilities and security
+│   │   ├── database/     # Database models and session
+│   │   ├── endpoints/    # Endpoint management
+│   │   ├── groups/       # Endpoint groups
+│   │   ├── reports/      # Report generation
+│   │   ├── scans/        # Scanning functionality
+│   │   ├── config.py     # Configuration
+│   │   └── main.py       # Application entry point
+│   ├── docs/             # Documentation
+│   ├── Dockerfile        # Docker configuration
+│   ├── docker-compose.yaml # Docker Compose configuration
+│   ├── env-template.txt  # Template for environment variables
+│   └── requirements.txt  # Python dependencies
+├── setup-script.sh       # Setup script for easy deployment
+└── test-api.py           # API testing script
 ```
 
 ### Running Tests
@@ -311,10 +318,17 @@ flake8 app
 
 ### Docker Deployment (Recommended)
 
-The easiest way to deploy SecurityScan Pro is using Docker Compose:
+The easiest way to deploy SecurityScan Pro is using the provided setup script:
 
 ```bash
-docker-compose -f docker-compose.yml up -d
+chmod +x setup-script.sh
+./setup-script.sh
+```
+
+Alternatively, you can use Docker Compose directly:
+
+```bash
+docker-compose -f backend/docker-compose.yaml up -d
 ```
 
 ### Manual Deployment
@@ -328,10 +342,15 @@ gunicorn -w 4 -k uvicorn.workers.UvicornWorker app.main:app
 
 ### Environment Variables for Production
 
-In production, make sure to set these additional environment variables:
+In production, make sure to set these environment variables in your `.env` file:
 
+- `DATABASE_URL`: Connection string for your PostgreSQL database
+- `SUPABASE_URL`: URL of your Supabase project
+- `SUPABASE_KEY`: Anon key for your Supabase project
+- `SUPABASE_JWT_SECRET`: JWT secret for your Supabase project
+- `ACCESS_TOKEN_EXPIRE_MINUTES`: JWT token expiration time (default: 10080 - 7 days)
 - `CORS_ORIGINS`: Comma-separated list of allowed origins
-- `ACCESS_TOKEN_EXPIRE_MINUTES`: JWT token expiration time
+- `NMAP_PATH`: Path to the nmap binary (default: /usr/bin/nmap)
 
 ## License
 
